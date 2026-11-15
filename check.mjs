@@ -49,7 +49,8 @@ if (mode === 'test' && run(['test', config, '--no-check'], false).status !== 0) 
   throw new Error('TestParity could not generate per-test coverage.');
 }
 
-const json = run(['check', config, '--format=json', ...(env.TP_HOSTED === 'true' ? coverage : [])]);
+const tests = env.TP_SHOW_TESTS === 'true' ? ['--show-tests'] : [];
+const json = run(['check', config, '--format=json', ...tests, ...(env.TP_HOSTED === 'true' ? coverage : [])]);
 let report;
 try { report = JSON.parse(json.stdout); } catch {
   throw new Error('TestParity did not produce JSON. Check the configuration and use a CLI that supports JSON suite coverage when hosting gaps.');
@@ -63,4 +64,6 @@ writeFileSync(join(directory, 'report.md'), markdown.stdout);
 if (env.GITHUB_STEP_SUMMARY && Buffer.byteLength(markdown.stdout) <= 950_000) {
   appendFileSync(env.GITHUB_STEP_SUMMARY, markdown.stdout + '\n');
 }
-appendFileSync(env.GITHUB_OUTPUT, `directory=${directory}\nsha=${sha}\nstatus=${json.status || markdown.status || Number(!report.passed)}\n`);
+const status = json.status || markdown.status || Number(!report.passed);
+const advisoryFinding = env.TP_FAIL === 'false' && !report.passed && json.status === 1 && markdown.status === 1;
+appendFileSync(env.GITHUB_OUTPUT, `directory=${directory}\nsha=${sha}\nstatus=${advisoryFinding ? 0 : status}\n`);

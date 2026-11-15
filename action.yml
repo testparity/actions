@@ -14,6 +14,12 @@ inputs:
     description: Optional full-suite Clover XML path for gap comparisons
   cli:
     description: Path or name of an installed TestParity executable; defaults to the v1.4.1 PHAR
+  fail-on-findings:
+    description: Fail the workflow when TestParity reports rule violations
+    default: 'true'
+  show-tests:
+    description: Include test names in report data
+    default: 'false'
   post-on-pr:
     description: Update a pull request comment (true or false)
     default: 'true'
@@ -25,6 +31,9 @@ inputs:
   hosted-token:
     description: Project upload token. If omitted, no run is uploaded.
 outputs:
+  report-directory:
+    description: Directory containing report.json and report.md
+    value: ${{ steps.check.outputs.directory }}
   report-url:
     description: Hosted run URL when the report was uploaded
     value: ${{ steps.publish.outputs.report-url }}
@@ -39,6 +48,8 @@ runs:
         TP_CONFIG: ${{ inputs.config }}
         TP_MODE: ${{ inputs.mode }}
         TP_SUITE: ${{ inputs.suite-coverage }}
+        TP_FAIL: ${{ inputs.fail-on-findings }}
+        TP_SHOW_TESTS: ${{ inputs.show-tests }}
         TP_CLI: ${{ inputs.cli }}
         TP_HOSTED: ${{ inputs.hosted-token != '' && 'true' || 'false' }}
       run: node "$GITHUB_ACTION_PATH/check.mjs"
