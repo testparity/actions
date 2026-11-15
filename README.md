@@ -65,4 +65,4 @@ Pushes upload under the branch name. PR uploads use `pull/<number>` and record t
 
 Fork and Dependabot PRs run the check without uploading or commenting. Use the `pull_request` event. See [GitHub's workflow permissions documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions).
 
-Use the `report-directory` output to upload `report.md` and `report.json` as workflow artifacts. For workflows that keep pull-request write permission in a separate job, set `post-on-pr: 'false'` and pass the uploaded Markdown artifact to `testparity/actions/.github/workflows/parity-comment.yml@v1`.
+Use the `report-directory` output to upload `report.md` and `report.json` as workflow artifacts. For workflows that keep pull-request write permission in a separate job, set `post-on-pr: 'false'` and pass the uploaded Markdown artifact to `testparity/actions/.github/workflows/parity-comment.yml@v1.1.0`. Set a distinct `comment-key` for each report on the same PR.
