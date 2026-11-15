@@ -15,3 +15,18 @@ jobs:
         with:
           cli: ./test/fixture-cli.sh
           post-on-pr: 'false'
+
+      - uses: actions/checkout@v4
+        with:
+          repository: testparity/php-sample
+          path: php-sample
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: xdebug
+      - run: composer install --prefer-dist --no-interaction
+        working-directory: php-sample
+      - uses: ./
+        with:
+          working-directory: php-sample
+          post-on-pr: 'false'

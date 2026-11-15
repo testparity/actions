@@ -74,10 +74,9 @@ async function comment(hosted) {
   const marker = `<!-- testparity-coverage:${env.TP_COMMENT_KEY} -->`;
   const links = hosted ? `\n\n[Open the hosted report](${hosted.url})\n\n${comparisonLine(hosted.comparison)}` : '';
   const heading = '## TestParity coverage';
-  const runUrl = `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
   const report = marker + '\n' + data('report.md') + links;
   const body = Buffer.byteLength(report) <= 65_000 ? report
-    : marker + '\n' + heading + `\n\nThe full report exceeds GitHub’s comment limit. [View the workflow run](${runUrl}).` + links;
+    : marker + '\n' + heading + `\n\nThe report exceeds GitHub’s comment size limit.` + links;
 
   const endpoint = `/issues/${pr.number}/comments`;
   let existing;

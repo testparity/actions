@@ -18,7 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Set up PHP 8.4+ and install your project's dependencies here.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      # Install your project's test dependencies here.
       - uses: testparity/actions@v1
 ```
 
