@@ -1,0 +1,61 @@
+name: TestParity
+description: Check associated-test coverage, publish hosted runs, and update a pull request comment
+inputs:
+  config:
+    description: TestParity configuration path from the working directory
+    default: parity.yaml
+  working-directory:
+    description: Project directory after checkout
+    default: .
+  mode:
+    description: test generates coverage first; check uses existing coverage
+    default: test
+  suite-coverage:
+    description: Optional full-suite Clover XML path for gap comparisons
+  cli:
+    description: Path or name of an installed TestParity executable; defaults to the v1.4.1 PHAR
+  post-on-pr:
+    description: Update a pull request comment (true or false)
+    default: 'true'
+  comment-key:
+    description: Distinguishes comments when multiple projects run on one PR
+    default: default
+  hosted-url:
+    description: Project upload endpoint from TestParity settings
+  hosted-token:
+    description: Project upload token. If omitted, no run is uploaded.
+outputs:
+  report-url:
+    description: Hosted run URL when the report was uploaded
+    value: ${{ steps.publish.outputs.report-url }}
+runs:
+  using: composite
+  steps:
+    - id: check
+      name: Run TestParity
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TP_CONFIG: ${{ inputs.config }}
+        TP_MODE: ${{ inputs.mode }}
+        TP_SUITE: ${{ inputs.suite-coverage }}
+        TP_CLI: ${{ inputs.cli }}
+        TP_HOSTED: ${{ inputs.hosted-token != '' && 'true' || 'false' }}
+      run: node "$GITHUB_ACTION_PATH/check.mjs"
+    - id: publish
+      name: Publish report
+      shell: bash
+      env:
+        TP_DIRECTORY: ${{ steps.check.outputs.directory }}
+        TP_CHECKOUT_SHA: ${{ steps.check.outputs.sha }}
+        TP_POST: ${{ inputs.post-on-pr }}
+        TP_COMMENT_KEY: ${{ inputs.comment-key }}
+        TP_HOSTED_URL: ${{ inputs.hosted-url }}
+        TP_HOSTED_TOKEN: ${{ inputs.hosted-token }}
+        TP_GITHUB_TOKEN: ${{ github.token }}
+      run: node "$GITHUB_ACTION_PATH/publish.mjs"
+    - name: Apply check result
+      shell: bash
+      env:
+        TP_STATUS: ${{ steps.check.outputs.status }}
+      run: exit "$TP_STATUS"
