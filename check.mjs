@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { compareBaseline, baselineMarkdown } from './baseline.mjs';
 
 const env = process.env;
 if (env.GITHUB_EVENT_NAME === 'pull_request_target') {
@@ -58,6 +59,12 @@ try { report = JSON.parse(json.stdout); } catch {
 if (typeof report.passed !== 'boolean' || !Array.isArray(report.structures)) throw new Error('Invalid TestParity JSON report.');
 const markdown = run(['check', config, '--format=github', ...coverage]);
 if (!markdown.stdout.startsWith('## TestParity coverage')) throw new Error('TestParity did not produce a GitHub report.');
+let comparison;
+if (env.TP_BASELINE) {
+  comparison = compareBaseline(JSON.parse(readFileSync(env.TP_BASELINE, 'utf8')), report, existsSync);
+  markdown.stdout += '\n\n' + baselineMarkdown(comparison) + '\n';
+  writeFileSync(join(directory, 'baseline-comparison.json'), JSON.stringify(comparison));
+}
 
 writeFileSync(join(directory, 'report.json'), JSON.stringify(report));
 writeFileSync(join(directory, 'report.md'), markdown.stdout);
@@ -66,4 +73,4 @@ if (env.GITHUB_STEP_SUMMARY && Buffer.byteLength(markdown.stdout) <= 950_000) {
 }
 const status = json.status || markdown.status || Number(!report.passed);
 const advisoryFinding = env.TP_FAIL === 'false' && !report.passed && json.status === 1 && markdown.status === 1;
-appendFileSync(env.GITHUB_OUTPUT, `directory=${directory}\nsha=${sha}\nstatus=${advisoryFinding ? 0 : status}\n`);
+appendFileSync(env.GITHUB_OUTPUT, `directory=${directory}\nsha=${sha}\nstatus=${comparison?.passed === false ? 1 : advisoryFinding ? 0 : status}\n`);
