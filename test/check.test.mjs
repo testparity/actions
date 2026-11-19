@@ -9,6 +9,45 @@ import test from 'node:test';
 
 const script = fileURLToPath(new URL('../check.mjs', import.meta.url));
 
+for (const [name, custom, hosted, expectedSuite] of [
+  ['default CLI receives suite evidence in JSON', false, false, true],
+  ['older custom CLI preserves JSON compatibility', true, false, false],
+  ['hosted custom CLI receives suite evidence in JSON', true, true, true],
+]) {
+  test(name, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'testparity-suite-'));
+    try {
+      const cli = join(dir, 'php');
+      const output = join(dir, 'output');
+      const args = join(dir, 'args');
+      writeFileSync(cli, `#!/bin/sh
+echo "$*" >> "$TP_TEST_ARGS"
+case "$*" in
+  *--format=json*) echo '{"passed":true,"structures":[]}'; exit 0 ;;
+  *--format=github*) echo '## TestParity coverage'; exit 0 ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+      const preload = join(dir, 'download.mjs');
+      writeFileSync(preload, `import { createHash } from 'node:crypto';
+const binary = Buffer.from('test binary');
+globalThis.fetch = async url => {
+  if (!url.startsWith('https://github.com/testparity/cli/releases/download/v1.5.0/')) throw new Error('Unexpected release URL');
+  return new Response(url.endsWith('.sha256') ? createHash('sha256').update(binary).digest('hex') : binary);
+};`);
+      const result = spawnSync(process.execPath, ['--import', preload, script], { encoding: 'utf8', env: {
+        ...process.env, PATH: dir + ':' + process.env.PATH, RUNNER_TEMP: dir, GITHUB_OUTPUT: output,
+        GITHUB_STEP_SUMMARY: '', TP_CLI: custom ? cli : '', TP_HOSTED: String(hosted),
+        TP_MODE: 'check', TP_CONFIG: 'parity.yaml', TP_SUITE: 'coverage.xml', TP_TEST_ARGS: args,
+      } });
+      assert.equal(result.status, 0, result.stderr);
+      const calls = readFileSync(args, 'utf8').trim().split('\n');
+      assert.equal(calls[0].includes('--suite-coverage=coverage.xml'), expectedSuite);
+      assert.match(calls[1], /--suite-coverage=coverage.xml/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+}
+
 test('line regression fails advisory action and retains line-number evidence', () => {
   const dir = mkdtempSync(join(tmpdir(), 'testparity-lines-'));
   try {
