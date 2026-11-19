@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const script = fileURLToPath(new URL('../check.mjs', import.meta.url));
+
+test('line regression fails advisory action and retains line-number evidence', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'testparity-lines-'));
+  try {
+    const hash = value => createHash('sha256').update(value).digest('hex');
+    const report = coveredLines => ({ passed: false, structures: [{ name: 'App', files: [{
+      source: 'src/Payment.php', test: 'tests/PaymentTest.php', passed: false,
+      rules: { 'matched-coverage': { passed: false, value: '50%' } },
+      lineCoverage: { version: 1, complete: true, sourceHash: hash('first\nsecond\n'),
+        lineHashes: [hash('first'), hash('second')], executableLines: [1, 2], coveredLines },
+    }] }] });
+    const cli = join(dir, 'parity');
+    const baseline = join(dir, 'baseline.json');
+    const output = join(dir, 'output');
+    writeFileSync(baseline, JSON.stringify(report([1])));
+    writeFileSync(cli, `#!/bin/sh
+case "$*" in
+  *--format=json*) echo '${JSON.stringify(report([2]))}'; exit 1 ;;
+  *--format=github*) echo '## TestParity coverage'; exit 1 ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+    const result = spawnSync(process.execPath, [script], { encoding: 'utf8', env: {
+      ...process.env, RUNNER_TEMP: dir, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: '',
+      TP_CLI: cli, TP_MODE: 'check', TP_CONFIG: 'parity.yaml', TP_FAIL: 'false', TP_BASELINE: baseline,
+    } });
+    assert.equal(result.status, 0, result.stderr);
+    const entries = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map(line => line.split('=')));
+    assert.equal(Number(entries.status), 1);
+    const comparison = JSON.parse(readFileSync(join(entries.directory, 'baseline-comparison.json')));
+    assert.deepEqual(comparison.regressions[0].lostCoverageLines, [1]);
+    assert.match(readFileSync(join(entries.directory, 'report.md'), 'utf8'), /associated coverage lost on lines: 1/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 for (const [name, fail, jsonStatus, markdownStatus, expected] of [
   ['strict findings fail', 'true', 1, 1, 1],
