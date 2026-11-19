@@ -19,7 +19,7 @@ if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(sha ?? '')) throw new Error('Check o
 let executable = env.TP_CLI;
 let prefix = [];
 if (!executable) {
-  const assets = 'https://github.com/testparity/cli/releases/download/v1.4.1/';
+  const assets = 'https://github.com/testparity/cli/releases/download/v1.5.0/';
   const download = async name => {
     const response = await fetch(assets + name, { signal: AbortSignal.timeout(60_000) });
     if (!response.ok) throw new Error('Could not download TestParity release asset: ' + name);
@@ -51,7 +51,8 @@ if (mode === 'test' && run(['test', config, '--no-check'], false).status !== 0) 
 }
 
 const tests = env.TP_SHOW_TESTS === 'true' ? ['--show-tests'] : [];
-const json = run(['check', config, '--format=json', ...tests, ...(env.TP_HOSTED === 'true' ? coverage : [])]);
+// The pinned CLI supports suite evidence in JSON; preserve older custom CLIs.
+const json = run(['check', config, '--format=json', ...tests, ...(!env.TP_CLI || env.TP_HOSTED === 'true' ? coverage : [])]);
 let report;
 try { report = JSON.parse(json.stdout); } catch {
   throw new Error('TestParity did not produce JSON. Check the configuration and use a CLI that supports JSON suite coverage when hosting gaps.');

@@ -13,7 +13,7 @@ inputs:
   suite-coverage:
     description: Optional full-suite Clover XML path for gap comparisons
   cli:
-    description: Path or name of an installed TestParity executable; defaults to the v1.4.1 PHAR
+    description: Path or name of an installed TestParity executable; defaults to the v1.5.0 PHAR
   fail-on-findings:
     description: Fail the workflow when TestParity reports rule violations
     default: 'true'

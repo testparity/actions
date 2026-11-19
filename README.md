@@ -44,7 +44,7 @@ Pushes upload under the branch name. PR uploads use `pull/<number>` and record t
 ### Compare the gap against the PR target
 
 1. Generate full-suite Clover XML in both the target branch and PR workflows.
-2. Add `suite-coverage: coverage.xml` and point `cli` at an executable that supports `parity check --format=json --suite-coverage=...`. This capability is in [CLI PR #6](https://github.com/testparity/cli/pull/6) and is absent from the default v1.4.1 PHAR.
+2. Add `suite-coverage: coverage.xml` and point `cli` at an executable that emits hosted gap fields in JSON. This capability is in [CLI PR #6](https://github.com/testparity/cli/pull/6) and is absent from the default v1.5.0 PHAR, which uses the suite input for executable-line evidence only.
 3. Run both workflows against the same hosted project on a platform release with action comparison support. The target branch must upload the exact base commit shown on the PR. The comment reports the mean percentage-point change and file counts by direction across comparable files. A missing base or missing gap data is shown explicitly.
 
 ## Inputs
@@ -63,7 +63,11 @@ Generate a fresh base-commit report with this action using `fail-on-findings: 'f
 
 Supplying a baseline enables the regression gate even when `fail-on-findings` is false. It rejects decreased `matched-coverage` percentages, newly failing rules (including missing tests), lost coverage evidence/rules, and newly failing report-level checks. Existing unchanged failures and improvements pass. New sources must have no failed checks. Missing mappings for sources still present on disk fail; deleted sources are allowed. Structure renames require a fresh baseline while the original source still exists. Invalid or duplicate report entries fail closed. Generate a fresh baseline for every PR; an old artifact is not a substitute for coverage at the current base commit.
 
-The released JSON format provides percentages and rule results, not executable line identities or counts. This gate therefore compares associated coverage ratios, not individual lost lines, full-suite coverage, or hosted gap history. Equal percentages can hide different covered lines; changes to coverage configuration must be reviewed. Reports are supplied by the caller and their provenance is the workflow's responsibility. The action does not execute baseline content.
+With a CLI that emits version-1 `lineCoverage` evidence, the gate also rejects lost associated coverage on unchanged executable lines and uncovered new executable lines, even when the overall percentage improves. Existing uncovered lines remain allowed. Physical source-line hashes align unchanged lines across insertions and deletions without including source code in the report. Changed statements must be covered; deleted statements need no coverage. Ambiguous repeated statements fail unless every possible alignment proves the uncovered line was already an uncovered executable line. Changed files requiring more than 4,000,000 alignment cells fail explicitly rather than skipping comparison.
+
+The default v1.5.0 PHAR emits line-level JSON evidence for supported coverage readers. Native PHPUnit XML can omit unhit statements: supply full-suite Clover using `suite-coverage` in both jobs to establish the complete executable-line set. The default CLI receives this input for JSON evidence as well as Markdown. For compatibility, custom `cli` executables receive it for JSON only when hosted publishing is enabled; custom baseline-only integrations must supply complete executable-line evidence themselves, or use the default CLI.
+
+Legacy baseline/current reports continue to use the percentage gate, explicitly labeled in Markdown and the comparison artifact; equal percentages cannot establish line-level coverage in this mode. Once the baseline has line evidence, removing it from the current report fails. Incomplete or malformed line evidence fails closed. Use the same CLI with complete executable-line coverage in both jobs to enable line-level comparison. Reports are supplied by the caller and their provenance is the workflow's responsibility; review coverage configuration changes. The action does not execute baseline content.
 
 The Markdown report includes the gate outcome, and `baseline-comparison.json` is saved alongside the normal reports. `report.json` retains the CLI's findings. Use `if: ${{ !cancelled() }}` on artifact staging/upload steps to retain reports after a regression fails the final action step.
 
@@ -72,7 +76,7 @@ The Markdown report includes the gate outcome, and `baseline-comparison.json` is
 | `mode` | `test` | Generate per-test coverage before checking, or use `check` for existing artifacts. |
 | `config` | `parity.yaml` | Project configuration file. |
 | `working-directory` | `.` | Directory used for tests and checks. |
-| `cli` | v1.4.1 PHAR | An installed executable or path relative to the working directory. |
+| `cli` | v1.5.0 PHAR | An installed executable or path relative to the working directory. |
 | `suite-coverage` | | Full-suite Clover XML file path. |
 | `fail-on-findings` | `true` | Set to `false` to report rule violations without failing CI. Errors generating a report still fail CI. |
 | `show-tests` | `false` | Include associated test names in the JSON report. |
