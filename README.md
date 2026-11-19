@@ -49,6 +49,24 @@ Pushes upload under the branch name. PR uploads use `pull/<number>` and record t
 
 ## Inputs
 
+### Gate regressions without enforcing existing gaps
+
+Generate a fresh base-commit report with this action using `fail-on-findings: 'false'` and `post-on-pr: 'false'`. Upload its `report-directory/report.json` as an artifact, download it in the PR coverage job, and pass its path as `baseline-report`. Use a separate unprivileged job checked out at the exact PR base SHA with the same configuration, CLI, runtime and coverage generation. Never run PR code in a job with write permissions or secrets, and never use `pull_request_target` to generate coverage.
+
+```yaml
+- uses: testparity/actions@v1
+  with:
+    fail-on-findings: 'false'
+    baseline-report: .parity/baseline/report.json
+    post-on-pr: 'false'
+```
+
+Supplying a baseline enables the regression gate even when `fail-on-findings` is false. It rejects decreased `matched-coverage` percentages, newly failing rules (including missing tests), lost coverage evidence/rules, and newly failing report-level checks. Existing unchanged failures and improvements pass. New sources must have no failed checks. Missing mappings for sources still present on disk fail; deleted sources are allowed. Structure renames require a fresh baseline while the original source still exists. Invalid or duplicate report entries fail closed. Generate a fresh baseline for every PR; an old artifact is not a substitute for coverage at the current base commit.
+
+The released JSON format provides percentages and rule results, not executable line identities or counts. This gate therefore compares associated coverage ratios, not individual lost lines, full-suite coverage, or hosted gap history. Equal percentages can hide different covered lines; changes to coverage configuration must be reviewed. Reports are supplied by the caller and their provenance is the workflow's responsibility. The action does not execute baseline content.
+
+The Markdown report includes the gate outcome, and `baseline-comparison.json` is saved alongside the normal reports. `report.json` retains the CLI's findings. Use `if: ${{ !cancelled() }}` on artifact staging/upload steps to retain reports after a regression fails the final action step.
+
 | Input | Default | Purpose |
 | --- | --- | --- |
 | `mode` | `test` | Generate per-test coverage before checking, or use `check` for existing artifacts. |
@@ -58,6 +76,7 @@ Pushes upload under the branch name. PR uploads use `pull/<number>` and record t
 | `suite-coverage` | | Full-suite Clover XML file path. |
 | `fail-on-findings` | `true` | Set to `false` to report rule violations without failing CI. Errors generating a report still fail CI. |
 | `show-tests` | `false` | Include associated test names in the JSON report. |
+| `baseline-report` | | Base commit JSON report path relative to the working directory. Enables a regression gate independent of advisory mode. |
 | `post-on-pr` | `true` | Set to `false` to skip the comment. |
 | `comment-key` | `default` | Set a different key per project if several action steps post on the same PR. |
 | `hosted-url` | | HTTPS project upload endpoint. |

@@ -20,6 +20,8 @@ inputs:
   show-tests:
     description: Include test names in report data
     default: 'false'
+  baseline-report:
+    description: Base commit report.json path; fail on new failed rules or reduced associated coverage, even in advisory mode
   post-on-pr:
     description: Update a pull request comment (true or false)
     default: 'true'
@@ -50,6 +52,7 @@ runs:
         TP_SUITE: ${{ inputs.suite-coverage }}
         TP_FAIL: ${{ inputs.fail-on-findings }}
         TP_SHOW_TESTS: ${{ inputs.show-tests }}
+        TP_BASELINE: ${{ inputs.baseline-report }}
         TP_CLI: ${{ inputs.cli }}
         TP_HOSTED: ${{ inputs.hosted-token != '' && 'true' || 'false' }}
       run: node "$GITHUB_ACTION_PATH/check.mjs"
